@@ -184,7 +184,7 @@ Panel {
             width: servicesFlick.width
             spacing: Style.space(8)
 
-            Repeater {
+Repeater {
               model: serviceManager ? serviceManager.services : []
 
               delegate: BorderSurface {
@@ -289,6 +289,8 @@ Panel {
                     }
                   }
                 }
+              }
+            }
               }
             }
           }
