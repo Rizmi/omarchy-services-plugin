@@ -21,9 +21,11 @@ Panel {
 
   readonly property ServiceManager serviceManager: hostWidget ? hostWidget.serviceManager : null
 
+  property int spinTrigger: 0
+
   function triggerRefresh() {
     if (serviceManager) serviceManager.refresh()
-    spinAnimation.restart()
+    root.spinTrigger++
   }
 
   onOpenedChanged: {
@@ -118,6 +120,11 @@ Panel {
                   to: 360
                   duration: 500
                   easing.type: Easing.OutCubic
+                }
+
+                Connections {
+                  target: root
+                  function onSpinTriggerChanged() { spinAnimation.restart() }
                 }
               }
 

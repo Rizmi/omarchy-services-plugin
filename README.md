@@ -16,6 +16,14 @@ Before installing the widget, ensure your system has:
 
 ---
 
+<p align="center">
+  <img width="330" height="390" alt="Services Manager Panel 1" src="https://imglink.cc/cdn/g4cw3-uYYE.png" />
+  &nbsp;&nbsp;
+  <img width="330" height="390" alt="Services Manager Panel 2" src="https://imglink.cc/cdn/mpM5X9Je46.png" />
+</p>
+
+---
+
 ## Installation
 
 ### Option 1: Using `omarchy plugin` (Recommended)
@@ -156,7 +164,7 @@ You can add any systemd service to `services.json`:
   - Individual toggle switches with instant optimistic UI feedback.
   - Multi-unit shutdown support (stops `docker.service` and `docker.socket` together).
   - Batch "Start All" and "Stop All" actions.
-  - Smooth 360° rotating refresh button.
+  - Animated refresh button with spin feedback.
 - **Keyboard Navigation** (when panel is open):
   - `1`, `2`, `3`, etc. → Toggle service by its numbered shortcut
   - `S` → Start All / Stop All

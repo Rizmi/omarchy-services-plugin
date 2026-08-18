@@ -75,15 +75,12 @@ Item {
   }
 
   readonly property string tooltipText: {
-    if (servicesDef.length === 0) return "Services — No services in services.json"
-    var parts = []
-    for (var i = 0; i < servicesDef.length; i++) {
-      var s = servicesDef[i]
-      var st = statusMap[s.id] || "inactive"
-      var cap = st.charAt(0).toUpperCase() + st.slice(1)
-      parts.push(s.name + ": " + cap)
-    }
-    return "Services — " + parts.join(" · ")
+    if (servicesDef.length === 0) return "No services configured"
+    var r = runningCount
+    var s = servicesDef.length - r
+    if (r === 0) return s + " stopped"
+    if (s === 0) return r + " running"
+    return r + " running · " + s + " stopped"
   }
 
   function loadServicesConfig(rawText) {
