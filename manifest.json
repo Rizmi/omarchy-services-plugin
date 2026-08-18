@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.rizmi.services",
+  "name": "Services Manager",
+  "version": "1.0.0",
+  "author": "Omarchy Community",
+  "license": "MIT",
+  "description": "Manage and toggle background system services (Docker, PostgreSQL, UFW) on demand from the Omarchy status bar.",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Services Manager",
+    "description": "Quick toggle for Docker, PostgreSQL, UFW, and background services.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshIntervalSec": 8,
+      "customConfigFile": ""
+    },
+    "schema": [
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 2,
+        "max": 60,
+        "step": 1,
+        "defaultValue": 8
+      },
+      {
+        "key": "customConfigFile",
+        "type": "string",
+        "label": "Custom services JSON configuration file path",
+        "defaultValue": ""
+      }
+    ]
+  }
+}

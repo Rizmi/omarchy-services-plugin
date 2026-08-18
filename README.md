@@ -1,0 +1,190 @@
+# Services Manager — Omarchy Bar Widget
+
+A lightweight, modern, and native [Omarchy](https://omarchy.org/) status bar widget and control panel to manage and toggle background system services (Docker, PostgreSQL, UFW Firewall, Redis, Ollama, etc.) directly from your desktop bar.
+
+Designed for developers who prefer to keep heavy system services disabled at boot and toggle them effortlessly on demand.
+
+---
+
+## Requirements & Prerequisites
+
+Before installing the widget, ensure your system has:
+
+1. **Omarchy Linux** with Quickshell status bar (`omarchy plugin` / `omarchy bar` CLI available).
+2. **systemd** with standard user permissions / Polkit (`omarchy.polkit` agent is standard on Omarchy).
+3. **Nerd Font** (standard on Omarchy, used for service glyphs).
+
+---
+
+## Installation
+
+### Option 1: Using `omarchy plugin` (Recommended)
+
+```bash
+omarchy plugin add https://github.com/Rizmi/omarchy-services-plugin.git --enable
+```
+
+### Option 2: Manual Installation
+
+1. Clone the repository into your Omarchy plugins directory:
+   ```bash
+   git clone https://github.com/Rizmi/omarchy-services-plugin.git \
+     ~/.config/omarchy/plugins/io.github.rizmi.services
+   ```
+
+2. Validate and enable the plugin on your status bar:
+   ```bash
+   omarchy plugin validate ~/.config/omarchy/plugins/io.github.rizmi.services
+   omarchy plugin enable io.github.rizmi.services --section right
+   ```
+
+3. Reload the shell if necessary:
+   ```bash
+   omarchy restart shell
+   ```
+
+---
+
+## Removal
+
+```bash
+omarchy plugin disable io.github.rizmi.services
+rm -rf ~/.config/omarchy/plugins/io.github.rizmi.services
+omarchy restart shell
+```
+
+---
+
+## Configuration & Settings
+
+### Enable in `~/.config/omarchy/shell.json`
+
+Add `io.github.rizmi.services` to your preferred bar layout section (`left`, `center`, or `right`):
+
+```json
+{
+  "bar": {
+    "layout": {
+      "right": [
+        {
+          "id": "io.github.rizmi.services"
+        }
+      ]
+    }
+  }
+}
+```
+
+### Available Settings
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `refreshIntervalSec` | `integer` | `8` | Background status polling interval in seconds (2 to 60) |
+| `customConfigFile` | `string` | `""` | Optional path to custom JSON file (defaults to `~/.config/omarchy/services.json`) |
+
+---
+
+## Managing Services via `services.json`
+
+By default, the plugin manages **Docker**, **PostgreSQL**, and **UFW Firewall**.
+
+You can customize the list of managed services at any time by creating or editing `~/.config/omarchy/services.json`. The widget automatically watches this file and hot-reloads instantly when saved!
+
+### Example `~/.config/omarchy/services.json`:
+
+```json
+[
+  {
+    "id": "docker",
+    "name": "Docker",
+    "unit": "docker.service",
+    "stopUnits": ["docker.service", "docker.socket"],
+    "icon": "󰣆",
+    "description": "Container runtime engine"
+  },
+  {
+    "id": "postgresql",
+    "name": "PostgreSQL",
+    "unit": "postgresql.service",
+    "icon": "󰆼",
+    "description": "Relational database server"
+  },
+  {
+    "id": "ufw",
+    "name": "UFW Firewall",
+    "unit": "ufw.service",
+    "icon": "󰒃",
+    "description": "Netfilter firewall manager"
+  },
+  {
+    "id": "redis",
+    "name": "Redis",
+    "unit": "redis.service",
+    "icon": "󰌠",
+    "description": "In-memory cache store"
+  },
+  {
+    "id": "ollama",
+    "name": "Ollama AI",
+    "unit": "ollama.service",
+    "icon": "󰚩",
+    "description": "Local LLM runner"
+  },
+  {
+    "id": "mongodb",
+    "name": "MongoDB",
+    "unit": "mongodb.service",
+    "icon": "󰆼",
+    "description": "NoSQL document database"
+  },
+  {
+    "id": "mariadb",
+    "name": "MariaDB",
+    "unit": "mariadb.service",
+    "icon": "󰆼",
+    "description": "SQL relational database"
+  },
+  {
+    "id": "nginx",
+    "name": "Nginx",
+    "unit": "nginx.service",
+    "icon": "󰒋",
+    "description": "Web server & reverse proxy"
+  }
+]
+```
+
+### Service Schema Properties:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | Yes | Unique identifier (e.g. `"redis"`) |
+| `name` | `string` | Yes | Display title shown in the card header |
+| `unit` | `string` | Yes | systemd unit name (e.g. `"redis.service"`) |
+| `icon` | `string` | No | Nerd Font icon glyph (e.g. `"󰌠"`) |
+| `description` | `string` | No | Subtitle / description |
+| `stopUnits` | `array` | No | List of extra units/sockets to stop together |
+
+---
+
+## Features & Controls
+
+- **Top Bar Indicator**:
+  - Highlights with active accent color when any service is running; dims when all services are stopped.
+  - Dynamic tooltip showing real-time states of all managed services.
+- **Interactive Control Panel**:
+  - Individual toggle switches with instant optimistic UI feedback.
+  - Multi-unit shutdown support (stops `docker.service` and `docker.socket` together).
+  - Batch "Start All" and "Stop All" actions.
+  - Smooth 360° rotating refresh button.
+- **Keyboard Navigation** (when panel is open):
+  - `1`, `2`, `3`, etc. → Toggle service by its numbered shortcut
+  - `S` → Start All / Stop All
+  - `R` → Force refresh statuses
+  - `Esc` → Close panel
+
+---
+
+## License
+
+MIT License © 2026 Omarchy Community
