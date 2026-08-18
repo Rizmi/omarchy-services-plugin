@@ -74,15 +74,6 @@ Item {
     return runningCount + " of " + servicesDef.length + " running"
   }
 
-  readonly property string tooltipText: {
-    if (servicesDef.length === 0) return "No services configured"
-    var r = runningCount
-    var s = servicesDef.length - r
-    if (r === 0) return s + " stopped"
-    if (s === 0) return r + " running"
-    return r + " running · " + s + " stopped"
-  }
-
   function loadServicesConfig(rawText) {
     var text = String(rawText || "").trim()
     var cleanList = []
@@ -98,6 +89,7 @@ Item {
                 id: String(item.id),
                 name: String(item.name || item.id),
                 unit: String(item.unit),
+                scope: item.scope === "user" ? "user" : "system",
                 stopUnits: Array.isArray(item.stopUnits) ? item.stopUnits : (item.stopUnits ? [String(item.stopUnits)] : []),
                 icon: String(item.icon || "󰒋"),
                 description: String(item.description || item.unit)
@@ -155,11 +147,39 @@ Item {
     root.services = list
   }
 
+  property var checkQueue: []
+
   function refresh() {
     if (checkProcess.running || servicesDef.length === 0) return
-    var cmd = ["systemctl", "is-active"]
+    var sysUnits = []
+    var sysIds = []
+    var usrUnits = []
+    var usrIds = []
     for (var i = 0; i < servicesDef.length; i++) {
-      cmd.push(servicesDef[i].unit)
+      var def = servicesDef[i]
+      if (def.scope === "user") {
+        usrUnits.push(def.unit)
+        usrIds.push(def.id)
+      } else {
+        sysUnits.push(def.unit)
+        sysIds.push(def.id)
+      }
+    }
+    root.checkQueue = []
+    if (sysUnits.length > 0) root.checkQueue.push({ scope: "system", units: sysUnits, ids: sysIds })
+    if (usrUnits.length > 0) root.checkQueue.push({ scope: "user", units: usrUnits, ids: usrIds })
+    runNextCheck()
+  }
+
+  function runNextCheck() {
+    if (checkQueue.length === 0) return
+    var job = checkQueue.shift()
+    currentCheckJob = job
+    var cmd = ["systemctl"]
+    if (job.scope === "user") cmd.push("--user")
+    cmd.push("is-active")
+    for (var i = 0; i < job.units.length; i++) {
+      cmd.push(job.units[i])
     }
     checkProcess.command = cmd
     checkProcess.running = true
@@ -216,7 +236,8 @@ Item {
     var proc = controlProcessComponent.createObject(root, {
       units: units,
       action: action,
-      serviceId: serviceId
+      serviceId: serviceId,
+      scope: def.scope === "user" ? "user" : "system"
     })
     proc.start()
   }
@@ -228,9 +249,12 @@ Item {
       property var units: []
       property string action: ""
       property string serviceId: ""
+      property string scope: "system"
 
       function start() {
-        var cmd = ["systemctl", action]
+        var cmd = ["systemctl"]
+        if (procItem.scope === "user") cmd.push("--user")
+        cmd.push(action)
         for (var i = 0; i < units.length; i++) {
           cmd.push(units[i])
         }
@@ -265,25 +289,28 @@ Item {
     }
   }
 
+  property var currentCheckJob: null
+
   Process {
     id: checkProcess
     running: false
     stdout: StdioCollector { id: checkStdout; waitForEnd: true }
     onExited: function(exitCode) {
       var lines = String(checkStdout.text || "").trim().split("\n")
-      var newStatus = {}
-      var newActive = {}
+      var newStatus = Object.assign({}, root.statusMap)
+      var newActive = Object.assign({}, root.activeMap)
+      var job = currentCheckJob
 
-      for (var i = 0; i < servicesDef.length; i++) {
-        var s = servicesDef[i]
+      for (var i = 0; i < job.ids.length; i++) {
         var rawLine = (i < lines.length ? lines[i].trim() : "inactive")
-        newStatus[s.id] = rawLine
-        newActive[s.id] = (rawLine === "active")
+        newStatus[job.ids[i]] = rawLine
+        newActive[job.ids[i]] = (rawLine === "active")
       }
 
       statusMap = newStatus
       activeMap = newActive
       updateServicesList()
+      runNextCheck()
     }
   }
 
@@ -295,24 +322,6 @@ Item {
       root.actionMessage = ""
       root.lastError = ""
     }
-  }
-
-  function intSettingLocal(name, fallback, min, max) {
-    var v = settings ? settings[name] : undefined
-    var n = parseInt(String(v === undefined || v === null ? fallback : v), 10)
-    if (!isFinite(n)) n = fallback
-    if (n < min) n = min
-    if (n > max) n = max
-    return n
-  }
-
-  Timer {
-    id: pollTimer
-    interval: root.intSettingLocal("refreshIntervalSec", 8, 2, 60) * 1000
-    running: true
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: root.refresh()
   }
 
   Component.onCompleted: {

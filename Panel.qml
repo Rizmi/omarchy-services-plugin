@@ -37,6 +37,14 @@ Panel {
     }
   }
 
+  // Poll status every 3s while the panel is open; no background polling
+  Timer {
+    interval: 3000
+    repeat: true
+    running: root.opened
+    onTriggered: if (serviceManager) serviceManager.refresh()
+  }
+
   IpcHandler {
     target: root.ipcTarget
     function open(): void { root.open() }
@@ -147,24 +155,15 @@ Panel {
           }
         }
 
-        // Action / Error message
-        Text {
-          visible: serviceManager && (serviceManager.actionMessage !== "" || serviceManager.lastError !== "")
-          width: parent.width
-          text: serviceManager ? (serviceManager.actionMessage !== "" ? serviceManager.actionMessage : serviceManager.lastError) : ""
-          color: serviceManager && serviceManager.lastError !== "" && serviceManager.actionMessage === "" ? root.urgent : root.dim
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.bodySmall
-          wrapMode: Text.WordWrap
-        }
-
-        PanelSeparator { foreground: root.foreground }
-
-        // Section Header (Static)
+        // Section Header (Static) — temporarily shows action/error messages
         PanelSectionHeader {
-          text: "BACKGROUND SERVICES"
-          foreground: root.foreground
-          fontFamily: root.fontFamily
+          width: parent.width
+          elide: Text.ElideRight
+          wrapMode: Text.NoWrap
+          text: serviceManager && (serviceManager.actionMessage !== "" || serviceManager.lastError !== "")
+            ? (serviceManager.actionMessage !== "" ? serviceManager.actionMessage : serviceManager.lastError).toUpperCase()
+            : "BACKGROUND SERVICES"
+          foreground: serviceManager && serviceManager.lastError !== "" && serviceManager.actionMessage === "" ? root.urgent : root.foreground
         }
 
         // Scrollable Services List (Only this scrolls)
@@ -184,7 +183,7 @@ Panel {
             width: servicesFlick.width
             spacing: Style.space(8)
 
-Repeater {
+            Repeater {
               model: serviceManager ? serviceManager.services : []
 
               delegate: BorderSurface {
@@ -289,8 +288,6 @@ Repeater {
                     }
                   }
                 }
-              }
-            }
               }
             }
           }

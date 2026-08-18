@@ -69,6 +69,8 @@ The plugin reads its list of services directly from **`services.json`**.
 
 Users can add, remove, or modify services at any time by editing `services.json` (either in the plugin folder or as a user override at `~/.config/omarchy/services.json`). The plugin automatically detects changes and hot-reloads instantly upon saving!
 
+**Override precedence:** if `~/.config/omarchy/services.json` exists and is non-empty, it is used and the plugin folder's `services.json` is ignored entirely. The override is the recommended place for your personal service list — it survives `omarchy plugin update`, while edits to the plugin folder are overwritten on update.
+
 ### Default `services.json`:
 
 ```json
@@ -100,10 +102,18 @@ Users can add, remove, or modify services at any time by editing `services.json`
 
 ### Adding Popular Services
 
-You can add any systemd service to `services.json`:
+You can add any systemd service to `services.json`, including user-scope services:
 
 ```json
 [
+  {
+    "id": "sunshine",
+    "name": "Sunshine",
+    "unit": "app-dev.lizardbyte.app.Sunshine.service",
+    "scope": "user",
+    "icon": "󰌋",
+    "description": "Self-hosted game stream host"
+  },
   {
     "id": "redis",
     "name": "Redis",
@@ -149,6 +159,7 @@ You can add any systemd service to `services.json`:
 | `id` | `string` | Yes | Unique identifier (e.g. `"redis"`) |
 | `name` | `string` | Yes | Display title shown in the card header |
 | `unit` | `string` | Yes | systemd unit name (e.g. `"redis.service"`) |
+| `scope` | `string` | No | `"system"` (default) or `"user"` for user-level services. User-scope units are checked and toggled via `systemctl --user` (e.g. `app-dev.lizardbyte.app.Sunshine.service`) |
 | `icon` | `string` | No | Nerd Font icon glyph (e.g. `"󰌠"`) |
 | `description` | `string` | No | Subtitle / description |
 | `stopUnits` | `array` | No | List of extra units/sockets to stop together |

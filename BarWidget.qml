@@ -87,7 +87,6 @@ BarWidget {
     useActiveColor: false
     text: "󱌢"
     foreground: serviceManager.runningCount > 0 ? root.activeColor : root.dimColor
-    tooltipText: serviceManager.tooltipText
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.RightButton) {
         serviceManager.refresh()
