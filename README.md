@@ -19,7 +19,7 @@ Before installing the widget, ensure your system has:
 <p align="center">
   <img width="332" height="464" alt="Services Manager Panel 1" src="https://imglink.cc/cdn/gktHBU-kGh.png" />
   &nbsp;&nbsp;
-  <img width="332" height="464" alt="Services Manager Panel 2" src="https://imglink.cc/cdn/iKrO6pJ9yR.png />
+  <img width="332" height="464" alt="Services Manager Panel 2" src="https://imglink.cc/cdn/iKrO6pJ9yR.png" />
 </p>
 
 ---
