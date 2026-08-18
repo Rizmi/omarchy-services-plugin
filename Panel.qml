@@ -56,7 +56,7 @@ Panel {
     open: root.opened
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(320))
-    contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(480))
+    contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(520))
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -160,119 +160,133 @@ Panel {
 
         PanelSeparator { foreground: root.foreground }
 
-        // Services list
-        Column {
+        // Section Header (Static)
+        PanelSectionHeader {
+          text: "BACKGROUND SERVICES"
+          foreground: root.foreground
+          fontFamily: root.fontFamily
+        }
+
+        // Scrollable Services List (Only this scrolls)
+        Flickable {
+          id: servicesFlick
           width: parent.width
-          spacing: Style.space(8)
+          height: Math.min(servicesListCol.implicitHeight, Style.space(260))
+          contentWidth: width
+          contentHeight: servicesListCol.implicitHeight
+          clip: true
+          boundsBehavior: Flickable.StopAtBounds
+          flickableDirection: Flickable.VerticalFlick
+          interactive: contentHeight > height
 
-          PanelSectionHeader {
-            text: "BACKGROUND SERVICES"
-            foreground: root.foreground
-            fontFamily: root.fontFamily
-          }
+          Column {
+            id: servicesListCol
+            width: servicesFlick.width
+            spacing: Style.space(8)
 
-          Repeater {
-            model: serviceManager ? serviceManager.services : []
+            Repeater {
+              model: serviceManager ? serviceManager.services : []
 
-            delegate: BorderSurface {
-              id: serviceCard
-              required property var modelData
-              required property int index
+              delegate: BorderSurface {
+                id: serviceCard
+                required property var modelData
+                required property int index
 
-              width: parent.width
-              implicitHeight: Style.space(56)
-              radius: Style.cornerRadius
-              color: Style.controlFill(false, cardMouse.containsMouse, root.foreground, Color.accent)
-              borderSpec: Border.controlSpec(cardMouse.containsMouse ? "hover-cursor" : "normal", root.foreground, Color.accent)
+                width: parent.width
+                implicitHeight: Style.space(56)
+                radius: Style.cornerRadius
+                color: Style.controlFill(false, cardMouse.containsMouse, root.foreground, Color.accent)
+                borderSpec: Border.controlSpec(cardMouse.containsMouse ? "hover-cursor" : "normal", root.foreground, Color.accent)
 
-              RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: Style.space(12)
-                anchors.rightMargin: Style.space(12)
-                spacing: Style.space(12)
+                RowLayout {
+                  anchors.fill: parent
+                  anchors.leftMargin: Style.space(12)
+                  anchors.rightMargin: Style.space(12)
+                  spacing: Style.space(12)
 
-                // Service Icon Badge
-                Rectangle {
-                  width: Style.space(34)
-                  height: Style.space(34)
-                  radius: Style.cornerRadius
-                  color: serviceCard.modelData.active
-                    ? Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.15)
-                    : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.06)
-                  Layout.alignment: Qt.AlignVCenter
+                  // Service Icon Badge
+                  Rectangle {
+                    width: Style.space(34)
+                    height: Style.space(34)
+                    radius: Style.cornerRadius
+                    color: serviceCard.modelData.active
+                      ? Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.15)
+                      : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.06)
+                    Layout.alignment: Qt.AlignVCenter
 
-                  Text {
-                    anchors.centerIn: parent
-                    text: serviceCard.modelData.icon
-                    color: serviceCard.modelData.active ? (Color.accent || root.foreground) : root.dim
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.subtitle
-                  }
-                }
-
-                // Service info
-                Column {
-                  Layout.fillWidth: true
-                  Layout.alignment: Qt.AlignVCenter
-                  spacing: Style.space(2)
-
-                  Row {
-                    spacing: Style.space(6)
                     Text {
-                      text: serviceCard.modelData.name
-                      color: root.foreground
+                      anchors.centerIn: parent
+                      text: serviceCard.modelData.icon
+                      color: serviceCard.modelData.active ? (Color.accent || root.foreground) : root.dim
                       font.family: root.fontFamily
-                      font.pixelSize: Style.font.body
-                      font.bold: true
+                      font.pixelSize: Style.font.subtitle
                     }
+                  }
+
+                  // Service info
+                  Column {
+                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignVCenter
+                    spacing: Style.space(2)
+
+                    Row {
+                      spacing: Style.space(6)
+                      Text {
+                        text: serviceCard.modelData.name
+                        color: root.foreground
+                        font.family: root.fontFamily
+                        font.pixelSize: Style.font.body
+                        font.bold: true
+                      }
+                      Text {
+                        text: "[" + (serviceCard.index + 1) + "]"
+                        color: root.dim
+                        opacity: 0.6
+                        font.family: root.fontFamily
+                        font.pixelSize: Style.font.caption
+                        anchors.verticalCenter: parent.verticalCenter
+                      }
+                    }
+
                     Text {
-                      text: "[" + (serviceCard.index + 1) + "]"
-                      color: root.dim
-                      opacity: 0.6
+                      text: serviceCard.modelData.statusLabel + " · " + serviceCard.modelData.unit
+                      color: serviceCard.modelData.active ? root.foreground : root.dim
+                      opacity: serviceCard.modelData.active ? 0.9 : 0.7
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.caption
-                      anchors.verticalCenter: parent.verticalCenter
+                      elide: Text.ElideRight
+                      width: parent.width
                     }
                   }
 
-                  Text {
-                    text: serviceCard.modelData.statusLabel + " · " + serviceCard.modelData.unit
-                    color: serviceCard.modelData.active ? root.foreground : root.dim
-                    opacity: serviceCard.modelData.active ? 0.9 : 0.7
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                    elide: Text.ElideRight
-                    width: parent.width
+                  // Toggle switch
+                  ToggleSwitch {
+                    id: serviceSwitch
+                    checked: serviceCard.modelData.active
+                    busy: serviceCard.modelData.busy
+                    interactive: !serviceCard.modelData.busy
+                    foreground: root.foreground
+                    accent: Color.accent
+                    Layout.alignment: Qt.AlignVCenter
+                    onToggled: if (serviceManager) serviceManager.toggleService(serviceCard.modelData.id)
+
+                    PanelToolTip {
+                      visible: serviceSwitch.containsMouse
+                      text: serviceCard.modelData.active ? ("Stop " + serviceCard.modelData.name) : ("Start " + serviceCard.modelData.name)
+                      fontFamily: root.fontFamily
+                    }
                   }
                 }
 
-                // Toggle switch
-                ToggleSwitch {
-                  id: serviceSwitch
-                  checked: serviceCard.modelData.active
-                  busy: serviceCard.modelData.busy
-                  interactive: !serviceCard.modelData.busy
-                  foreground: root.foreground
-                  accent: Color.accent
-                  Layout.alignment: Qt.AlignVCenter
-                  onToggled: if (serviceManager) serviceManager.toggleService(serviceCard.modelData.id)
-
-                  PanelToolTip {
-                    visible: serviceSwitch.containsMouse
-                    text: serviceCard.modelData.active ? ("Stop " + serviceCard.modelData.name) : ("Start " + serviceCard.modelData.name)
-                    fontFamily: root.fontFamily
-                  }
-                }
-              }
-
-              MouseArea {
-                id: cardMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  if (serviceManager && !serviceCard.modelData.busy) {
-                    serviceManager.toggleService(serviceCard.modelData.id)
+                MouseArea {
+                  id: cardMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    if (serviceManager && !serviceCard.modelData.busy) {
+                      serviceManager.toggleService(serviceCard.modelData.id)
+                    }
                   }
                 }
               }
@@ -282,7 +296,7 @@ Panel {
 
         PanelSeparator { foreground: root.foreground }
 
-        // Bottom Actions
+        // Bottom Actions (Static)
         RowLayout {
           width: parent.width
           spacing: Style.space(8)
