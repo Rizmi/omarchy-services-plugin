@@ -62,15 +62,14 @@ Panel {
         if (!serviceManager) return
         if (t === "r" || t === "R") {
           root.triggerRefresh()
-        } else if (t === "1") {
-          serviceManager.toggleService("docker")
-        } else if (t === "2") {
-          serviceManager.toggleService("postgresql")
-        } else if (t === "3") {
-          serviceManager.toggleService("ufw")
         } else if (t === "s" || t === "S") {
           if (serviceManager.runningCount > 0) serviceManager.stopAll()
           else serviceManager.startAll()
+        } else {
+          var idx = parseInt(t, 10) - 1
+          if (idx >= 0 && idx < serviceManager.services.length) {
+            serviceManager.toggleService(serviceManager.services[idx].id)
+          }
         }
       }
 

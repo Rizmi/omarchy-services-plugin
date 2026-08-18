@@ -55,42 +55,13 @@ omarchy restart shell
 
 ---
 
-## Configuration & Settings
+## Configuration & Customizing Services
 
-### Enable in `~/.config/omarchy/shell.json`
+The plugin reads its list of services directly from **`services.json`**.
 
-Add `io.github.rizmi.services` to your preferred bar layout section (`left`, `center`, or `right`):
+Users can add, remove, or modify services at any time by editing `services.json` (either in the plugin folder or as a user override at `~/.config/omarchy/services.json`). The plugin automatically detects changes and hot-reloads instantly upon saving!
 
-```json
-{
-  "bar": {
-    "layout": {
-      "right": [
-        {
-          "id": "io.github.rizmi.services"
-        }
-      ]
-    }
-  }
-}
-```
-
-### Available Settings
-
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `refreshIntervalSec` | `integer` | `8` | Background status polling interval in seconds (2 to 60) |
-| `customConfigFile` | `string` | `""` | Optional path to custom JSON file (defaults to `~/.config/omarchy/services.json`) |
-
----
-
-## Managing Services via `services.json`
-
-By default, the plugin manages **Docker**, **PostgreSQL**, and **UFW Firewall**.
-
-You can customize the list of managed services at any time by creating or editing `~/.config/omarchy/services.json`. The widget automatically watches this file and hot-reloads instantly when saved!
-
-### Example `~/.config/omarchy/services.json`:
+### Default `services.json`:
 
 ```json
 [
@@ -115,7 +86,16 @@ You can customize the list of managed services at any time by creating or editin
     "unit": "ufw.service",
     "icon": "󰒃",
     "description": "Netfilter firewall manager"
-  },
+  }
+]
+```
+
+### Adding Popular Services
+
+You can add any systemd service to `services.json`:
+
+```json
+[
   {
     "id": "redis",
     "name": "Redis",

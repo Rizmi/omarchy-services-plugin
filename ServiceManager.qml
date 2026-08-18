@@ -7,45 +7,50 @@ Item {
 
   property var settings: ({})
 
-  readonly property var defaultServicesDef: [
-    {
-      id: "docker",
-      name: "Docker",
-      unit: "docker.service",
-      stopUnits: ["docker.service", "docker.socket"],
-      icon: "󰣆",
-      description: "Container runtime engine"
-    },
-    {
-      id: "postgresql",
-      name: "PostgreSQL",
-      unit: "postgresql.service",
-      icon: "󰆼",
-      description: "Relational database server"
-    },
-    {
-      id: "ufw",
-      name: "UFW Firewall",
-      unit: "ufw.service",
-      icon: "󰒃",
-      description: "Netfilter firewall manager"
-    }
-  ]
+  property var servicesDef: []
 
-  property var servicesDef: defaultServicesDef
+  readonly property string localServicesFile: {
+    var raw = Qt.resolvedUrl("services.json").toString()
+    return raw.replace(/^file:\/\//, "")
+  }
 
-  readonly property string customConfigFile: {
+  readonly property string userServicesFile: {
     var custom = settings ? settings["customConfigFile"] : undefined
     return custom ? String(custom) : (Quickshell.env("HOME") + "/.config/omarchy/services.json")
   }
 
-  property FileView configFileView: FileView {
-    path: root.customConfigFile
+  // Watch the plugin's own services.json
+  property FileView localConfigFileView: FileView {
+    path: root.localServicesFile
     watchChanges: true
     printErrors: false
-    onFileChanged: root.loadServicesConfig(text())
-    onLoaded: root.loadServicesConfig(text())
-    onLoadFailed: root.loadServicesConfig("")
+    onFileChanged: root.reloadConfig()
+    onLoaded: root.reloadConfig()
+    onLoadFailed: root.reloadConfig()
+  }
+
+  // Watch user override ~/.config/omarchy/services.json if present
+  property FileView userConfigFileView: FileView {
+    path: root.userServicesFile
+    watchChanges: true
+    printErrors: false
+    onFileChanged: root.reloadConfig()
+    onLoaded: root.reloadConfig()
+    onLoadFailed: root.reloadConfig()
+  }
+
+  function reloadConfig() {
+    var userText = String(userConfigFileView.text() || "").trim()
+    if (userText) {
+      root.loadServicesConfig(userText)
+      return
+    }
+    var localText = String(localConfigFileView.text() || "").trim()
+    if (localText) {
+      root.loadServicesConfig(localText)
+      return
+    }
+    root.loadServicesConfig("")
   }
 
   property var services: []
@@ -58,6 +63,7 @@ Item {
   property string actionMessage: ""
 
   readonly property string summaryText: {
+    if (servicesDef.length === 0) return "No services configured"
     if (runningCount === 0) return "All services stopped"
     if (runningCount === 1) {
       for (var i = 0; i < servicesDef.length; i++) {
@@ -69,6 +75,7 @@ Item {
   }
 
   readonly property string tooltipText: {
+    if (servicesDef.length === 0) return "Services — No services in services.json"
     var parts = []
     for (var i = 0; i < servicesDef.length; i++) {
       var s = servicesDef[i]
@@ -76,46 +83,36 @@ Item {
       var cap = st.charAt(0).toUpperCase() + st.slice(1)
       parts.push(s.name + ": " + cap)
     }
-    return "Services — " + (parts.length > 0 ? parts.join(" · ") : "No services configured")
+    return "Services — " + parts.join(" · ")
   }
 
   function loadServicesConfig(rawText) {
     var text = String(rawText || "").trim()
-    if (!text) {
-      root.servicesDef = root.defaultServicesDef
-      root.updateServicesList()
-      root.refresh()
-      return
-    }
-    try {
-      var parsed = JSON.parse(text)
-      var list = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.services) ? parsed.services : null)
-      if (list && list.length > 0) {
-        var cleanList = []
-        for (var i = 0; i < list.length; i++) {
-          var item = list[i]
-          if (item && item.id && item.unit) {
-            cleanList.push({
-              id: String(item.id),
-              name: String(item.name || item.id),
-              unit: String(item.unit),
-              stopUnits: Array.isArray(item.stopUnits) ? item.stopUnits : (item.stopUnits ? [String(item.stopUnits)] : []),
-              icon: String(item.icon || "󰒋"),
-              description: String(item.description || item.unit)
-            })
+    var cleanList = []
+    if (text) {
+      try {
+        var parsed = JSON.parse(text)
+        var list = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.services) ? parsed.services : null)
+        if (list && list.length > 0) {
+          for (var i = 0; i < list.length; i++) {
+            var item = list[i]
+            if (item && item.id && item.unit) {
+              cleanList.push({
+                id: String(item.id),
+                name: String(item.name || item.id),
+                unit: String(item.unit),
+                stopUnits: Array.isArray(item.stopUnits) ? item.stopUnits : (item.stopUnits ? [String(item.stopUnits)] : []),
+                icon: String(item.icon || "󰒋"),
+                description: String(item.description || item.unit)
+              })
+            }
           }
         }
-        if (cleanList.length > 0) {
-          root.servicesDef = cleanList
-          root.updateServicesList()
-          root.refresh()
-          return
-        }
+      } catch (e) {
+        console.warn("io.github.rizmi.services: failed to parse services.json:", e)
       }
-    } catch (e) {
-      console.warn("io.github.rizmi.services: failed to parse services.json:", e)
     }
-    root.servicesDef = root.defaultServicesDef
+    root.servicesDef = cleanList
     root.updateServicesList()
     root.refresh()
   }
@@ -303,9 +300,18 @@ Item {
     }
   }
 
+  function intSettingLocal(name, fallback, min, max) {
+    var v = settings ? settings[name] : undefined
+    var n = parseInt(String(v === undefined || v === null ? fallback : v), 10)
+    if (!isFinite(n)) n = fallback
+    if (n < min) n = min
+    if (n > max) n = max
+    return n
+  }
+
   Timer {
     id: pollTimer
-    interval: 8000
+    interval: root.intSettingLocal("refreshIntervalSec", 8, 2, 60) * 1000
     running: true
     repeat: true
     triggeredOnStart: true
@@ -313,7 +319,6 @@ Item {
   }
 
   Component.onCompleted: {
-    updateServicesList()
-    refresh()
+    reloadConfig()
   }
 }

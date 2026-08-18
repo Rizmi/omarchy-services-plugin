@@ -1,0 +1,24 @@
+[
+  {
+    "id": "docker",
+    "name": "Docker",
+    "unit": "docker.service",
+    "stopUnits": ["docker.service", "docker.socket"],
+    "icon": "󰣆",
+    "description": "Container runtime engine"
+  },
+  {
+    "id": "postgresql",
+    "name": "PostgreSQL",
+    "unit": "postgresql.service",
+    "icon": "󰆼",
+    "description": "Relational database server"
+  },
+  {
+    "id": "ufw",
+    "name": "UFW Firewall",
+    "unit": "ufw.service",
+    "icon": "󰒃",
+    "description": "Netfilter firewall manager"
+  }
+]
