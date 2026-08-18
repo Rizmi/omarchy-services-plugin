@@ -21,6 +21,8 @@ Panel {
 
   readonly property ServiceManager serviceManager: hostWidget ? hostWidget.serviceManager : null
 
+  readonly property var barIdentity: hostWidget || root
+
   property int spinTrigger: 0
 
   function triggerRefresh() {
@@ -49,7 +51,7 @@ Panel {
   KeyboardPanel {
     id: panel
     anchorItem: root.anchorItem
-    owner: root
+    owner: root.barIdentity
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher

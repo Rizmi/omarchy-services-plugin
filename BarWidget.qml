@@ -83,6 +83,8 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
+    active: root.opened
+    useActiveColor: false
     text: "󱌢"
     foreground: serviceManager.runningCount > 0 ? root.activeColor : root.dimColor
     tooltipText: serviceManager.tooltipText
