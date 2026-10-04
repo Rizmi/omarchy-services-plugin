@@ -1,8 +1,8 @@
 # Services Manager — Omarchy Bar Widget
 
-A lightweight, modern, and native [Omarchy](https://omarchy.org/) status bar widget and control panel to manage and toggle background system services (Docker, PostgreSQL, UFW Firewall, Redis, Ollama, etc.) directly from your desktop bar.
+A lightweight, modern, and native [Omarchy](https://omarchy.org/) status bar widget and control panel to manage and toggle background system services (Docker, PostgreSQL, UFW Firewall, etc.) and arbitrary background commands (Node dev servers, Python servers, background scripts) directly from your desktop bar.
 
-Designed for developers who prefer to keep heavy system services disabled at boot and toggle them effortlessly on demand.
+Designed for developers who want to toggle system services and local dev servers effortlessly on demand with clean background process lifecycle management.
 
 ---
 
@@ -69,7 +69,58 @@ Users can add, remove, or modify services at any time by editing `services.json`
 
 **Override precedence:** if `~/.config/omarchy/services.json` exists and is non-empty, it is used and the plugin folder's `services.json` is ignored entirely. The override is the recommended place for your personal service list — it survives `omarchy plugin update`, while edits to the plugin folder are overwritten on update.
 
-### Default `services.json`:
+---
+
+### Running Custom Commands & Dev Servers (Node, Python, etc.)
+
+You can turn ON and OFF **any command or server** directly from your status bar. When turned on, the command runs in the background. When turned off, it is cleanly killed (including all child processes).
+
+Simply add an entry with `"command"` to your `services.json`:
+
+```json
+[
+  {
+    "id": "node-dev",
+    "name": "Node Frontend",
+    "command": "npm run dev",
+    "cwd": "~/Projects/my-web-app",
+    "icon": "󰎙",
+    "description": "Vite dev server on :5173"
+  },
+  {
+    "id": "python-api",
+    "name": "FastAPI Server",
+    "command": "python3 -m uvicorn main:app --reload --port 8000",
+    "cwd": "~/Projects/backend-api",
+    "icon": "󰌠",
+    "description": "FastAPI on port 8000"
+  },
+  {
+    "id": "http-docs",
+    "name": "Docs Server",
+    "command": "python3 -m http.server 8080",
+    "cwd": "~/Documents/docs",
+    "icon": "󰌠"
+  },
+  {
+    "id": "compose-stack",
+    "name": "App Stack",
+    "command": "docker compose up",
+    "stop": "docker compose down",
+    "cwd": "~/Projects/fullstack-app",
+    "icon": "󰣆"
+  }
+]
+```
+
+> [!TIP]
+> **Process Tree Cleanup:** Background commands run in an isolated systemd user cgroup. When turned off, all child processes (e.g. `node`, `vite`, `python` worker processes) are killed cleanly, preventing orphaned background processes from holding onto ports.
+
+---
+
+### Adding Systemd Services
+
+You can manage system-level or user-level systemd services alongside custom commands:
 
 ```json
 [
@@ -77,7 +128,7 @@ Users can add, remove, or modify services at any time by editing `services.json`
     "id": "docker",
     "name": "Docker",
     "unit": "docker.service",
-    "stopUnits": ["docker.service", "docker.socket"],
+    "stopUnits": ["docker.service", "docker.socket", "containerd.service"],
     "icon": "󰣆",
     "description": "Container runtime engine"
   },
@@ -89,6 +140,14 @@ Users can add, remove, or modify services at any time by editing `services.json`
     "description": "Relational database server"
   },
   {
+    "id": "sunshine",
+    "name": "Sunshine",
+    "unit": "app-dev.lizardbyte.app.Sunshine.service",
+    "scope": "user",
+    "icon": "󰌋",
+    "description": "Self-hosted game stream host"
+  },
+  {
     "id": "ufw",
     "name": "UFW Firewall",
     "unit": "ufw.service",
@@ -98,69 +157,24 @@ Users can add, remove, or modify services at any time by editing `services.json`
 ]
 ```
 
-### Adding Popular Services
-
-You can add any systemd service to `services.json`, including user-scope services:
-
-```json
-[
-  {
-    "id": "sunshine",
-    "name": "Sunshine",
-    "unit": "app-dev.lizardbyte.app.Sunshine.service",
-    "scope": "user",
-    "icon": "󰌋",
-    "description": "Self-hosted game stream host"
-  },
-  {
-    "id": "redis",
-    "name": "Redis",
-    "unit": "redis.service",
-    "icon": "󰌠",
-    "description": "In-memory cache store"
-  },
-  {
-    "id": "ollama",
-    "name": "Ollama AI",
-    "unit": "ollama.service",
-    "icon": "󰚩",
-    "description": "Local LLM runner"
-  },
-  {
-    "id": "mongodb",
-    "name": "MongoDB",
-    "unit": "mongodb.service",
-    "icon": "󰆼",
-    "description": "NoSQL document database"
-  },
-  {
-    "id": "mariadb",
-    "name": "MariaDB",
-    "unit": "mariadb.service",
-    "icon": "󰆼",
-    "description": "SQL relational database"
-  },
-  {
-    "id": "nginx",
-    "name": "Nginx",
-    "unit": "nginx.service",
-    "icon": "󰒋",
-    "description": "Web server & reverse proxy"
-  }
-]
-```
+---
 
 ### Service Schema Properties:
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `id` | `string` | Yes | Unique identifier (e.g. `"redis"`) |
-| `name` | `string` | Yes | Display title shown in the card header |
-| `unit` | `string` | Yes | systemd unit name (e.g. `"redis.service"`) |
-| `scope` | `string` | No | `"system"` (default) or `"user"` for user-level services. User-scope units are checked and toggled via `systemctl --user` (e.g. `app-dev.lizardbyte.app.Sunshine.service`) |
-| `icon` | `string` | No | Nerd Font icon glyph (e.g. `"󰌠"`) |
-| `description` | `string` | No | Subtitle / description |
-| `stopUnits` | `array` | No | List of extra units/sockets to stop together |
+| `id` | `string` | Yes | Unique identifier (e.g. `"node-app"`, `"docker"`) |
+| `name` | `string` | No | Display title shown in the card header (defaults to `id`) |
+| `command` | `string` | For commands | Shell command to run in the background (e.g. `"npm run dev"`, `"python3 -m http.server 8000"`). Also accepts `start` / `startCommand`. |
+| `cwd` | `string` | No | Working directory to execute the command in (supports `~`, e.g. `"~/Projects/my-app"`). Also accepts `workingDirectory` / `dir`. |
+| `stop` | `string` | No | Optional custom stop command (e.g. `"docker compose down"`). If omitted, the process and its entire process tree are cleanly terminated automatically. Also accepts `stopCommand`. |
+| `env` | `object` / `array` | No | Environment variables to pass to the process (e.g. `{"PORT": "3000", "NODE_ENV": "development"}`) |
+| `unit` | `string` | For systemd | systemd unit name (e.g. `"docker.service"`). For commands, automatically generated if omitted. |
+| `scope` | `string` | No | `"system"` (default for systemd) or `"user"` (default for custom commands) |
+| `startUnits` | `array` | No | List of units to start together (for systemd services) |
+| `stopUnits` | `array` | No | List of extra units/sockets to stop together (e.g. `["docker.service", "docker.socket"]`) |
+| `icon` | `string` | No | Nerd Font icon glyph (e.g. `"󰎙"`, `"󰌠"`). Auto-detected for Python, Node/JS, Rust, Go, Docker, etc., if omitted. |
+| `description` | `string` | No | Subtitle / description (defaults to the command or unit name) |
 
 ---
 

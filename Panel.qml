@@ -208,15 +208,19 @@ Panel {
                     width: Style.space(34)
                     height: Style.space(34)
                     radius: Style.cornerRadius
-                    color: serviceCard.modelData.active
-                      ? Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.15)
-                      : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.06)
+                    color: serviceCard.modelData.status === "failed"
+                      ? Qt.rgba(root.urgent.r, root.urgent.g, root.urgent.b, 0.15)
+                      : (serviceCard.modelData.active
+                          ? Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.15)
+                          : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.06))
                     Layout.alignment: Qt.AlignVCenter
 
                     Text {
                       anchors.centerIn: parent
                       text: serviceCard.modelData.icon
-                      color: serviceCard.modelData.active ? (Color.accent || root.foreground) : root.dim
+                      color: serviceCard.modelData.status === "failed"
+                        ? root.urgent
+                        : (serviceCard.modelData.active ? (Color.accent || root.foreground) : root.dim)
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.subtitle
                     }
@@ -248,9 +252,16 @@ Panel {
                     }
 
                     Text {
-                      text: serviceCard.modelData.statusLabel + " · " + serviceCard.modelData.unit
-                      color: serviceCard.modelData.active ? root.foreground : root.dim
-                      opacity: serviceCard.modelData.active ? 0.9 : 0.7
+                      text: {
+                        var detail = serviceCard.modelData.isCommand
+                          ? (serviceCard.modelData.command || serviceCard.modelData.description || serviceCard.modelData.unit)
+                          : serviceCard.modelData.unit
+                        return serviceCard.modelData.statusLabel + " · " + detail
+                      }
+                      color: serviceCard.modelData.status === "failed"
+                        ? root.urgent
+                        : (serviceCard.modelData.active ? root.foreground : root.dim)
+                      opacity: serviceCard.modelData.active || serviceCard.modelData.status === "failed" ? 0.9 : 0.7
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.caption
                       elide: Text.ElideRight
@@ -286,6 +297,21 @@ Panel {
                     if (serviceManager && !serviceCard.modelData.busy) {
                       serviceManager.toggleService(serviceCard.modelData.id)
                     }
+                  }
+
+                  PanelToolTip {
+                    visible: cardMouse.containsMouse && !serviceSwitch.containsMouse
+                    text: {
+                      var t = serviceCard.modelData.name
+                      if (serviceCard.modelData.description && serviceCard.modelData.description !== serviceCard.modelData.name) {
+                        t += " — " + serviceCard.modelData.description
+                      }
+                      if (serviceCard.modelData.isCommand && serviceCard.modelData.cwd) {
+                        t += "\nDir: " + serviceCard.modelData.cwd
+                      }
+                      return t
+                    }
+                    fontFamily: root.fontFamily
                   }
                 }
               }

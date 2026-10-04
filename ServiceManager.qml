@@ -74,31 +74,105 @@ Item {
     return runningCount + " of " + servicesDef.length + " running"
   }
 
+  function sanitizeUnitId(rawId) {
+    return String(rawId || "").replace(/[^a-zA-Z0-9_.-]/g, "_")
+  }
+
+  function expandPath(pathStr) {
+    if (!pathStr) return ""
+    var p = String(pathStr).trim()
+    var home = Quickshell.env("HOME") || ""
+    if (p === "~") return home
+    if (p.indexOf("~/") === 0) return home + p.substring(1)
+    return p
+  }
+
+  function getDefaultCommandIcon(cmd, id) {
+    var s = (String(cmd || "") + " " + String(id || "")).toLowerCase()
+    if (s.indexOf("python") !== -1 || s.indexOf("py ") !== -1 || s.indexOf(".py") !== -1 || s.indexOf("uvicorn") !== -1 || s.indexOf("gunicorn") !== -1 || s.indexOf("flask") !== -1 || s.indexOf("django") !== -1 || s.indexOf("fastapi") !== -1) {
+      return "󰌠"
+    }
+    if (s.indexOf("node") !== -1 || s.indexOf("npm") !== -1 || s.indexOf("yarn") !== -1 || s.indexOf("pnpm") !== -1 || s.indexOf("bun") !== -1 || s.indexOf("vite") !== -1 || s.indexOf("next") !== -1 || s.indexOf("express") !== -1) {
+      return "󰎙"
+    }
+    if (s.indexOf("cargo") !== -1 || s.indexOf("rust") !== -1) {
+      return "󱘗"
+    }
+    if (s.indexOf("go ") !== -1 || s.indexOf("golang") !== -1) {
+      return "󰟓"
+    }
+    if (s.indexOf("ruby") !== -1 || s.indexOf("rails") !== -1) {
+      return "󰴭"
+    }
+    if (s.indexOf("docker") !== -1 || s.indexOf("compose") !== -1) {
+      return "󰣆"
+    }
+    if (s.indexOf("php") !== -1 || s.indexOf("artisan") !== -1) {
+      return "󰌟"
+    }
+    return "󰒋"
+  }
+
   function loadServicesConfig(rawText) {
     var text = String(rawText || "").trim()
     var cleanList = []
     if (text) {
+      var parsed = null
       try {
-        var parsed = JSON.parse(text)
-        var list = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.services) ? parsed.services : null)
-        if (list && list.length > 0) {
-          for (var i = 0; i < list.length; i++) {
-            var item = list[i]
-            if (item && item.id && item.unit) {
-              cleanList.push({
-                id: String(item.id),
-                name: String(item.name || item.id),
-                unit: String(item.unit),
-                scope: item.scope === "user" ? "user" : "system",
-                stopUnits: Array.isArray(item.stopUnits) ? item.stopUnits : (item.stopUnits ? [String(item.stopUnits)] : []),
-                icon: String(item.icon || "󰒋"),
-                description: String(item.description || item.unit)
-              })
-            }
-          }
+        parsed = JSON.parse(text)
+      } catch (e1) {
+        try {
+          var cleaned = text
+            .replace(/\/\*[\s\S]*?\*\//g, "")
+            .replace(/\/\/.*$/gm, "")
+            .replace(/,(\s*[}\]])/g, "$1")
+          parsed = JSON.parse(cleaned)
+        } catch (e2) {
+          console.warn("io.github.rizmi.services: failed to parse services.json:", e2)
         }
-      } catch (e) {
-        console.warn("io.github.rizmi.services: failed to parse services.json:", e)
+      }
+
+      var list = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.services) ? parsed.services : null)
+      if (list && list.length > 0) {
+        for (var i = 0; i < list.length; i++) {
+          var item = list[i]
+          if (!item || !item.id) continue
+
+          var rawCmd = item.command || item.start || item.startCommand
+          var isCmd = Boolean(item.type === "command" || rawCmd)
+          var rawUnit = item.unit ? String(item.unit) : ""
+
+          if (!rawUnit && !isCmd) continue
+
+          var idStr = String(item.id)
+          var unitStr = rawUnit || ("omarchy-cmd-" + sanitizeUnitId(idStr) + ".service")
+          var cmdStr = rawCmd ? String(rawCmd) : ""
+          var stopCmdStr = item.stop || item.stopCommand ? String(item.stop || item.stopCommand) : ""
+          var cwdStr = expandPath(item.cwd || item.workingDirectory || item.dir || "")
+          var scopeStr = isCmd ? "user" : (item.scope === "user" ? "user" : "system")
+
+          var startUnits = Array.isArray(item.startUnits) ? item.startUnits : (item.startUnits ? [String(item.startUnits)] : [])
+          var stopUnits = Array.isArray(item.stopUnits) ? item.stopUnits : (item.stopUnits ? [String(item.stopUnits)] : [])
+
+          var iconStr = item.icon ? String(item.icon) : (isCmd ? getDefaultCommandIcon(cmdStr, idStr) : "󰒋")
+          var descStr = item.description ? String(item.description) : (isCmd ? (cmdStr || unitStr) : unitStr)
+
+          cleanList.push({
+            id: idStr,
+            name: String(item.name || item.id),
+            unit: unitStr,
+            isCommand: isCmd,
+            command: cmdStr,
+            stopCommand: stopCmdStr,
+            cwd: cwdStr,
+            env: item.env || null,
+            scope: scopeStr,
+            startUnits: startUnits,
+            stopUnits: stopUnits,
+            icon: iconStr,
+            description: descStr
+          })
+        }
       }
     }
     root.servicesDef = cleanList
@@ -135,6 +209,9 @@ Item {
         id: def.id,
         name: def.name,
         unit: def.unit,
+        isCommand: !!def.isCommand,
+        command: def.command || "",
+        cwd: def.cwd || "",
         icon: def.icon,
         description: def.description,
         active: isAct,
@@ -230,14 +307,20 @@ Item {
 
   function queueServiceCommand(def, action, serviceId) {
     var units = [def.unit]
-    if (action === "stop" && def.stopUnits && def.stopUnits.length > 0) {
-      units = def.stopUnits
+    if (!def.isCommand) {
+      if (action === "start" && def.startUnits && def.startUnits.length > 0) {
+        units = def.startUnits
+      } else if (action === "stop" && def.stopUnits && def.stopUnits.length > 0) {
+        units = def.stopUnits
+      }
     }
     var proc = controlProcessComponent.createObject(root, {
+      serviceDef: def,
       units: units,
       action: action,
       serviceId: serviceId,
-      scope: def.scope === "user" ? "user" : "system"
+      scope: def.scope === "user" ? "user" : "system",
+      isCommand: !!def.isCommand
     })
     proc.start()
   }
@@ -246,12 +329,79 @@ Item {
     id: controlProcessComponent
     Item {
       id: procItem
+      property var serviceDef: null
       property var units: []
       property string action: ""
       property string serviceId: ""
       property string scope: "system"
+      property bool isCommand: false
 
       function start() {
+        if (procItem.isCommand && procItem.serviceDef) {
+          var def = procItem.serviceDef
+          if (procItem.action === "start") {
+            var bashScript =
+              'unit="$1"\n' +
+              'cmd="$2"\n' +
+              'shift 2\n' +
+              'systemctl --user stop "$unit" 2>/dev/null || true\n' +
+              'systemctl --user reset-failed "$unit" 2>/dev/null || true\n' +
+              'exec systemd-run --user --unit="$unit" --property=TimeoutStopSec=5s "$@" bash -lc "$cmd"\n'
+
+            var cmdArgs = ["bash", "-c", bashScript, "--", def.unit, def.command]
+
+            if (def.cwd) {
+              cmdArgs.push("--working-directory=" + def.cwd)
+            }
+
+            if (def.env) {
+              if (Array.isArray(def.env)) {
+                for (var e = 0; e < def.env.length; e++) {
+                  cmdArgs.push("-E" + String(def.env[e]))
+                }
+              } else if (typeof def.env === "object") {
+                var envKeys = Object.keys(def.env)
+                for (var k = 0; k < envKeys.length; k++) {
+                  var key = envKeys[k]
+                  cmdArgs.push("-E" + key + "=" + String(def.env[key]))
+                }
+              }
+            }
+
+            process.command = cmdArgs
+            process.running = true
+            return
+          } else {
+            // Stop command service
+            if (def.stopCommand) {
+              var stopScript =
+                'unit="$1"\n' +
+                'stopCmd="$2"\n' +
+                'cwd="$3"\n' +
+                'if [ -n "$cwd" ] && [ -d "$cwd" ]; then cd "$cwd" || true; fi\n' +
+                'if [ -n "$stopCmd" ]; then\n' +
+                '  bash -lc "$stopCmd" || true\n' +
+                'fi\n' +
+                'systemctl --user stop "$unit" 2>/dev/null || true\n' +
+                'systemctl --user reset-failed "$unit" 2>/dev/null || true\n'
+
+              process.command = ["bash", "-c", stopScript, "--", def.unit, def.stopCommand, def.cwd || ""]
+              process.running = true
+              return
+            } else {
+              var plainStopScript =
+                'unit="$1"\n' +
+                'systemctl --user stop "$unit" 2>/dev/null || true\n' +
+                'systemctl --user reset-failed "$unit" 2>/dev/null || true\n'
+
+              process.command = ["bash", "-c", plainStopScript, "--", def.unit]
+              process.running = true
+              return
+            }
+          }
+        }
+
+        // Standard systemd service
         var cmd = ["systemctl"]
         if (procItem.scope === "user") cmd.push("--user")
         cmd.push(action)
@@ -271,18 +421,23 @@ Item {
           newBusy[procItem.serviceId] = false
           root.busyMap = newBusy
 
+          var serviceName = procItem.serviceDef ? procItem.serviceDef.name : procItem.serviceId
+
           if (exitCode !== 0) {
-            var err = String(procStderr.text || ("Failed to " + procItem.action + " " + procItem.serviceId)).trim()
+            var err = String(procStderr.text || ("Failed to " + procItem.action + " " + serviceName)).trim()
             root.lastError = err.length > 80 ? err.substring(0, 77) + "..." : err
             root.actionMessage = root.lastError
             actionTimer.restart()
           } else {
             root.lastError = ""
-            root.actionMessage = (procItem.action === "start" ? "Started " : "Stopped ") + procItem.serviceId
+            root.actionMessage = (procItem.action === "start" ? "Started " : "Stopped ") + serviceName
             actionTimer.restart()
           }
 
           root.refresh()
+          if (procItem.isCommand) {
+            postCheckTimer.restart()
+          }
           procItem.destroy()
         }
       }
@@ -315,6 +470,13 @@ Item {
   }
 
   Timer {
+    id: postCheckTimer
+    interval: 600
+    repeat: false
+    onTriggered: root.refresh()
+  }
+
+  Timer {
     id: actionTimer
     interval: 3000
     repeat: false
@@ -322,6 +484,18 @@ Item {
       root.actionMessage = ""
       root.lastError = ""
     }
+  }
+
+  Timer {
+    id: backgroundRefreshTimer
+    interval: {
+      var sec = settings ? parseInt(settings["refreshIntervalSec"], 10) : 8
+      if (!isFinite(sec) || sec < 2) sec = 8
+      return sec * 1000
+    }
+    repeat: true
+    running: true
+    onTriggered: root.refresh()
   }
 
   Component.onCompleted: {

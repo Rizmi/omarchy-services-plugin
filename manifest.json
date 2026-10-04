@@ -2,17 +2,17 @@
   "schemaVersion": 1,
   "id": "io.github.rizmi.services",
   "name": "Services Manager",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Omarchy Community",
   "license": "MIT",
-  "description": "Manage and toggle background system services (Docker, PostgreSQL, UFW) on demand from the Omarchy status bar.",
+  "description": "Manage and toggle background system services and custom commands (Docker, PostgreSQL, Node/Python servers, dev commands) on demand from the Omarchy status bar.",
   "kinds": ["bar-widget"],
   "entryPoints": {
     "barWidget": "BarWidget.qml"
   },
   "barWidget": {
     "displayName": "Services Manager",
-    "description": "Quick toggle for Docker, PostgreSQL, UFW, and background services.",
+    "description": "Quick toggle for Docker, PostgreSQL, Node/Python dev servers, and background commands.",
     "category": "System",
     "allowMultiple": false,
     "defaultSection": "right",
