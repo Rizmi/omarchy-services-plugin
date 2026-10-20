@@ -412,32 +412,74 @@ Item {
         process.running = true
       }
 
+      // systemctl batches every unit of a command into a single D-Bus call,
+      // EnqueueUnitJobMany. The systemd bus policy only allows the Manager
+      // members it lists, and that method is not among them, so the whole
+      // call is refused with "Access denied" on a stock bus. Retry one unit
+      // at a time when that happens: each call uses StartUnit/StopUnit,
+      // which every policy allows.
+      function fallbackCommand() {
+        var scopeArg = procItem.scope === "user" ? "--user" : ""
+        var script =
+          'rc=\n' +
+          'for u in "$@"; do\n' +
+          '  systemctl ' + scopeArg + ' ' + procItem.action + ' "$u" || rc=${rc:-$?}\n' +
+          'done\n' +
+          'exit ${rc:-0}\n'
+        return ["bash", "-c", script, "--"].concat(procItem.units)
+      }
+
+      function reportResult(exitCode, errText) {
+        var newBusy = Object.assign({}, root.busyMap)
+        newBusy[procItem.serviceId] = false
+        root.busyMap = newBusy
+
+        var serviceName = procItem.serviceDef ? procItem.serviceDef.name : procItem.serviceId
+
+        if (exitCode !== 0) {
+          var err = String(errText || ("Failed to " + procItem.action + " " + serviceName)).trim()
+          root.lastError = err.length > 80 ? err.substring(0, 77) + "..." : err
+          root.actionMessage = root.lastError
+          actionTimer.restart()
+        } else {
+          root.lastError = ""
+          root.actionMessage = (procItem.action === "start" ? "Started " : "Stopped ") + serviceName
+          actionTimer.restart()
+        }
+
+        root.refresh()
+        if (procItem.isCommand) {
+          postCheckTimer.restart()
+        }
+      }
+
       Process {
         id: process
         running: false
         stderr: StdioCollector { id: procStderr; waitForEnd: true }
         onExited: function(exitCode) {
-          var newBusy = Object.assign({}, root.busyMap)
-          newBusy[procItem.serviceId] = false
-          root.busyMap = newBusy
+          var errText = String(procStderr.text || "")
 
-          var serviceName = procItem.serviceDef ? procItem.serviceDef.name : procItem.serviceId
-
-          if (exitCode !== 0) {
-            var err = String(procStderr.text || ("Failed to " + procItem.action + " " + serviceName)).trim()
-            root.lastError = err.length > 80 ? err.substring(0, 77) + "..." : err
-            root.actionMessage = root.lastError
-            actionTimer.restart()
-          } else {
-            root.lastError = ""
-            root.actionMessage = (procItem.action === "start" ? "Started " : "Stopped ") + serviceName
-            actionTimer.restart()
+          // "Failed to enqueue jobs: Access denied" - the batch call never
+          // reached systemd. Retry with one unit per call.
+          var denied = exitCode === 4 && errText.indexOf("Access denied") !== -1
+          if (denied && procItem.units.length > 1) {
+            fallbackProcess.command = procItem.fallbackCommand()
+            fallbackProcess.running = true
+            return
           }
 
-          root.refresh()
-          if (procItem.isCommand) {
-            postCheckTimer.restart()
-          }
+          procItem.reportResult(exitCode, errText)
+          procItem.destroy()
+        }
+      }
+
+      Process {
+        id: fallbackProcess
+        running: false
+        stderr: StdioCollector { id: fallbackStderr; waitForEnd: true }
+        onExited: function(exitCode) {
+          procItem.reportResult(exitCode, fallbackStderr.text)
           procItem.destroy()
         }
       }

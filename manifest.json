@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.rizmi.services",
   "name": "Services Manager",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": "Omarchy Community",
   "license": "MIT",
   "description": "Manage and toggle background system services and custom commands (Docker, PostgreSQL, Node/Python servers, dev commands) on demand from the Omarchy status bar.",
